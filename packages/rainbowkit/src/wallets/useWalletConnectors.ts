@@ -71,6 +71,28 @@ export function useWalletConnectors(): WalletConnector[] {
 
   const walletConnectors: WalletConnector[] = [];
 
+  async function pollWallet(wallet: WalletConnector) {
+      console.log('running pollWallet');
+      const POLLING_INTERVAL = 500; // half second
+      const MAX_POLLS = 10; // poll for 5 seconds
+      let count = 0;
+      let ready = false
+      return new Promise((resolve) => {
+          const interval = setInterval(() => {
+              if (count === MAX_POLLS) {
+                  clearInterval(interval);
+                  resolve(ready)
+              }
+              if ((wallet.installed ?? true) && wallet.connector.ready) {
+                  clearInterval(interval)
+                  ready = true
+                  resolve(ready)
+              }
+              count++;
+          }, POLLING_INTERVAL);
+      })
+  }
+
   groupedWallets.forEach((wallet: WalletInstance) => {
     if (!wallet) {
       return;
@@ -86,7 +108,7 @@ export function useWalletConnectors(): WalletConnector[] {
         wallet.connector.on('message', ({ type }) =>
           type === 'connecting' ? fn() : undefined
         ),
-      ready: (wallet.installed ?? true) && wallet.connector.ready,
+      ready: pollWallet(wallet),
       recent,
       showWalletConnectModal: wallet.walletConnectModalConnector
         ? async () => {
